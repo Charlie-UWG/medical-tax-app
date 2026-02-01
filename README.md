@@ -1,4 +1,5 @@
 # 🏥 医療費控除管理アプリ (Medical Tax Deduction Manager)
+[![Biome Badge](https://img.shields.io/badge/Linter-Biome-60a5fa?style=flat&logo=biome&logoColor=white)](https://biomejs.dev/)
 
 確定申告の医療費控除明細書を、日々の入力からNumbers（macOS）での書き出しまでシームレスに行うためのWebアプリです。
 
