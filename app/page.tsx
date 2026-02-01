@@ -1,7 +1,7 @@
 "use client";
 
 // biome-ignore assist/source/organizeImports: < IGNORE >
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import type { MedicalRecord, MedicalCategory } from "@/types/medical";
 
 export default function MedicalTaxDeductionPage() {
@@ -15,15 +15,32 @@ export default function MedicalTaxDeductionPage() {
     reimbursement: 0,
   });
 
-  // 初回読み込み時にLocalStorageからデータを取得
+  // 初回読み込み
   useEffect(() => {
     const saved = localStorage.getItem("medical-records");
-    if (saved) setRecords(JSON.parse(saved));
+    if (saved) {
+      try {
+        setRecords(JSON.parse(saved));
+      } catch (e) {
+        console.error("Failed to load records", e);
+      }
+    }
   }, []);
 
-  // 記録が更新されるたびに保存
+  // 保存
   useEffect(() => {
     localStorage.setItem("medical-records", JSON.stringify(records));
+  }, [records]);
+
+  // --- 計算ロジック (useMemoで最適化) ---
+  const stats = useMemo(() => {
+    const total = records.reduce((sum, r) => sum + r.amount, 0);
+    const totalReimbursement = records.reduce((sum, r) => sum + r.reimbursement, 0);
+    const netExpense = total - totalReimbursement;
+    const deduction = Math.max(0, netExpense - 100000); // 10万円控除
+    const estimatedRefund = Math.floor(deduction * 0.2); // 所得税・住民税概算20%
+
+    return { total, netExpense, deduction, estimatedRefund };
   }, [records]);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -33,33 +50,16 @@ export default function MedicalTaxDeductionPage() {
       id: crypto.randomUUID(),
     };
     setRecords([newRecord, ...records]);
-    // フォームを一部リセット（日付や名前は連続入力のために残すのがコツ）
     setFormData({ ...formData, providerName: "", amount: 0, reimbursement: 0 });
   };
 
-  // CSV書き出し用の関数
   const exportToCsv = () => {
     if (records.length === 0) return alert("データがありません");
-
-    // Numbersで開けるようにヘッダーを定義
     const headers = ["日付", "受診者", "病院・薬局", "区分", "支払金額", "補填金額"];
-    
-    // データをCSVの行に変換
-    const rows = records.map(r => [
-      r.date,
-      r.patientName,
-      r.providerName,
-      r.category,
-      r.amount,
-      r.reimbursement
-    ].join(","));
-
-    // UTF-8のBOMを先頭に付与（これ重要！）
+    const rows = records.map(r => [r.date, r.patientName, r.providerName, r.category, r.amount, r.reimbursement].join(","));
     const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
     const csvContent = [headers.join(","), ...rows].join("\n");
     const blob = new Blob([bom, csvContent], { type: "text/csv;charset=utf-8;" });
-    
-    // ダウンロード処理
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -69,22 +69,43 @@ export default function MedicalTaxDeductionPage() {
   };
 
   return (
-    <main className="p-8 max-w-5xl mx-auto font-sans min-h-screen transition-colors duration-300 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">      <div className="flex justify-between items-center mb-8">
+    <main className="p-8 max-w-5xl mx-auto font-sans min-h-screen transition-colors duration-300 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+      <div className="flex justify-between items-center mb-8">
         <h1 className="text-2xl font-bold">🏥 医療費控除管理アプリ</h1>
         <button 
           type="button"
           onClick={exportToCsv}
-          className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition flex items-center gap-2"
+          className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition flex items-center gap-2 text-sm font-bold"
         >
           📊 Numbers形式で書き出す
         </button>
       </div>
+
+      {/* 集計ダッシュボード */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50">
+          <p className="text-xs text-slate-500 font-bold mb-1">実質負担額 (支払-補填)</p>
+          <p className="text-2xl font-mono font-bold">¥{stats.netExpense.toLocaleString()}</p>
+        </div>
+        <div className={`p-4 rounded-xl border transition-colors ${stats.deduction > 0 ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-slate-200 dark:border-slate-700 opacity-60'}`}>
+          <p className="text-xs text-blue-600 dark:text-blue-400 font-bold mb-1">控除対象額 (概算)</p>
+          <p className="text-2xl font-mono font-bold">¥{stats.deduction.toLocaleString()}</p>
+        </div>
+        <div className={`p-4 rounded-xl border transition-colors ${stats.estimatedRefund > 0 ? 'border-green-500 bg-green-50 dark:bg-green-900/20 shadow-lg shadow-green-500/10' : 'border-slate-200 dark:border-slate-700 opacity-60'}`}>
+          <p className="text-xs text-green-600 dark:text-green-400 font-bold mb-1">還付・減税見込額</p>
+          <p className="text-2xl font-mono font-bold text-green-600 dark:text-green-400">¥{stats.estimatedRefund.toLocaleString()}</p>
+        </div>
+      </div>
+
       {/* 入力フォーム */}
-      <form onSubmit={handleSubmit} className="bg-slate-50 dark:bg-slate-800 p-6 rounded-lg mb-8 border border-slate-200 dark:border-slate-700 shadow-sm">
+      <form onSubmit={handleSubmit} className="bg-slate-50 dark:bg-slate-800 p-6 rounded-xl mb-8 border border-slate-200 dark:border-slate-700 shadow-sm">
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           <input
             type="date"
-            className="p-2 border rounded dark:bg-slate-700 dark:text-white"
+            className="p-3 text-lg border-2 rounded-xl font-bold transition-all
+              dark:bg-slate-700 dark:text-white dark:border-slate-600
+              focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 outline-none
+              cursor-pointer"
             value={formData.date}
             onChange={(e) => setFormData({ ...formData, date: e.target.value })}
             required
@@ -92,7 +113,7 @@ export default function MedicalTaxDeductionPage() {
           <input
             type="text"
             placeholder="受診者の氏名"
-            className="p-2 border rounded dark:bg-slate-700 dark:text-white"
+            className="p-2 border rounded-md dark:bg-slate-700 dark:text-white dark:border-slate-600"
             value={formData.patientName}
             onChange={(e) => setFormData({ ...formData, patientName: e.target.value })}
             required
@@ -100,13 +121,13 @@ export default function MedicalTaxDeductionPage() {
           <input
             type="text"
             placeholder="病院・薬局名"
-            className="p-2 border rounded dark:bg-slate-700 dark:text-white"
+            className="p-2 border rounded-md dark:bg-slate-700 dark:text-white dark:border-slate-600"
             value={formData.providerName}
             onChange={(e) => setFormData({ ...formData, providerName: e.target.value })}
             required
           />
           <select
-            className="p-2 border rounded dark:bg-slate-700 dark:text-white"
+            className="p-2 border rounded-md dark:bg-slate-700 dark:text-white dark:border-slate-600"
             value={formData.category}
             onChange={(e) => setFormData({ ...formData, category: e.target.value as MedicalCategory })}
           >
@@ -116,47 +137,48 @@ export default function MedicalTaxDeductionPage() {
             <option>その他の医療費（交通費など）</option>
           </select>
           <div className="flex items-center gap-2">
-            <span className="text-sm">支払額:</span>
+            <span className="text-xs font-bold text-slate-500 whitespace-nowrap">金額:</span>
             <input
               type="number"
-              className="p-2 border rounded dark:bg-slate-700 dark:text-white w-full"
-              value={formData.amount}
+              className="p-2 border rounded-md dark:bg-slate-700 dark:text-white dark:border-slate-600 w-full font-mono"
+              value={formData.amount || ""}
               onChange={(e) => setFormData({ ...formData, amount: Number(e.target.value) })}
+              onFocus={(e) => e.target.select()}
               required
             />
           </div>
-          <button type="submit" className="bg-blue-600 text-white rounded font-bold hover:bg-blue-700 transition">
+          <button type="submit" className="bg-blue-600 text-white rounded-md font-bold hover:bg-blue-700 transition shadow-md active:scale-95">
             追加する
           </button>
         </div>
       </form>
 
       {/* データ一覧 */}
-      <div className="overflow-x-auto shadow-md rounded-lg">
+      <div className="overflow-x-auto border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm">
         <table className="w-full text-left border-collapse bg-white dark:bg-slate-800">
-          <thead className="bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200">
+          <thead className="bg-slate-50 text-slate-600 dark:bg-slate-700 dark:text-slate-200">
             <tr>
-              <th className="p-3 border">日付</th>
-              <th className="p-3 border">氏名</th>
-              <th className="p-3 border">場所</th>
-              <th className="p-3 border">区分</th>
-              <th className="p-3 border text-right">金額</th>
-              <th className="p-3 border">操作</th>
+              <th className="p-3 text-xs font-bold uppercase tracking-wider border-b dark:border-slate-600">日付</th>
+              <th className="p-3 text-xs font-bold uppercase tracking-wider border-b dark:border-slate-600">氏名</th>
+              <th className="p-3 text-xs font-bold uppercase tracking-wider border-b dark:border-slate-600">場所</th>
+              <th className="p-3 text-xs font-bold uppercase tracking-wider border-b dark:border-slate-600">区分</th>
+              <th className="p-3 text-xs font-bold uppercase tracking-wider border-b dark:border-slate-600 text-right">金額</th>
+              <th className="p-3 text-xs font-bold uppercase tracking-wider border-b dark:border-slate-600 text-center">操作</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
             {records.map((r) => (
-              <tr key={r.id} className="hover:bg-slate-50 dark:hover:bg-slate-700">
-                <td className="p-3 border text-sm">{r.date}</td>
-                <td className="p-3 border text-sm">{r.patientName}</td>
-                <td className="p-3 border text-sm">{r.providerName}</td>
-                <td className="p-3 border text-xs">{r.category}</td>
-                <td className="p-3 border text-right font-mono">¥{r.amount.toLocaleString()}</td>
-                <td className="p-3 border text-center">
+              <tr key={r.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-700/50 transition-colors">
+                <td className="p-3 text-sm">{r.date}</td>
+                <td className="p-3 text-sm">{r.patientName}</td>
+                <td className="p-3 text-sm">{r.providerName}</td>
+                <td className="p-3 text-xs text-slate-500 dark:text-slate-400">{r.category}</td>
+                <td className="p-3 text-right font-mono font-medium">¥{r.amount.toLocaleString()}</td>
+                <td className="p-3 text-center">
                   <button 
                     type="button"
                     onClick={() => setRecords(records.filter(rec => rec.id !== r.id))}
-                    className="text-red-500 hover:underline text-xs"
+                    className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 px-2 py-1 rounded transition-colors text-xs font-bold"
                   >
                     削除
                   </button>
@@ -165,6 +187,11 @@ export default function MedicalTaxDeductionPage() {
             ))}
           </tbody>
         </table>
+        {records.length === 0 && (
+          <div className="p-10 text-center text-slate-400 text-sm">
+            データがありません。領収書を入力してください。
+          </div>
+        )}
       </div>
     </main>
   );
