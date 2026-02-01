@@ -1,0 +1,29 @@
+{
+  // "[html]": {
+  // 	"editor.defaultFormatter": "esbenp.prettier-vscode"
+  // },
+  // "[css]": {
+  // 	"editor.defaultFormatter": "esbenp.prettier-vscode"
+  // },
+  // "[markdown]": {
+  // 	"editor.defaultFormatter": "esbenp.prettier-vscode"
+  // },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "biomejs.biome"
+  },
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "biomejs.biome",
+  "editor.codeActionsOnSave": {
+    "source.fixAll.biome": "always",
+    "source.organizeImports.biome": "always"
+  },
+  "editor.quickSuggestions": {
+    "strings": true
+  },
+  "javascript.preferences.importModuleSpecifier": "non-relative",
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "editor.tabSize": 2,
+  "editor.accessibilitySupport": "off",
+  "editor.aiStats.enabled": true,
+  "editor.autoIndentOnPaste": true
+}
