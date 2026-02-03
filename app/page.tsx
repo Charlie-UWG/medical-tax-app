@@ -5,7 +5,7 @@ import { useState, useEffect, useMemo, useId } from "react"; // 💡 useIdを追
 import DatePicker, { registerLocale } from "react-datepicker";
 import { ja } from "date-fns/locale/ja"; // 日本語化用
 import "react-datepicker/dist/react-datepicker.css";
-import type { MedicalRecord, MedicalCategory } from "@/types/medical";
+import type { MedicalRecord, MedicalCategory } from "@/types/tax";
 
 registerLocale("ja", ja);
 

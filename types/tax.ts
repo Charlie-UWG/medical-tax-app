@@ -20,3 +20,12 @@ export interface MedicalRecord {
   reimbursement: number; // 保険金などで補填される金額（円）
   isSelfMedication?: boolean; // セルフメディケーション税制対象かどうかのフラグ
 }
+// --- ふるさと納税用 (新設！) ---
+export interface FurusatoRecord {
+  id: string;
+  date: string;
+  city: string; // 自治体名 (ここにもサジェストを使います！)
+  amount: number; // 寄付金額
+  memo: string; // 返礼品の内容など
+  oneStop: boolean; // ワンストップ特例を利用するか
+}
