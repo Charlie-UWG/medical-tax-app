@@ -27,5 +27,5 @@ export interface FurusatoRecord {
   city: string; // 自治体名 (ここにもサジェストを使います！)
   amount: number; // 寄付金額
   memo: string; // 返礼品の内容など
-  oneStop: boolean; // ワンストップ特例を利用するか
+  isOneStop: boolean; // ワンストップ特例を利用するか
 }
