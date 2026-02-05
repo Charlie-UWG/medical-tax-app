@@ -7,11 +7,11 @@ import { ja } from "date-fns/locale/ja"; // 日本語化用
 import "react-datepicker/dist/react-datepicker.css";
 import type { MedicalRecord, MedicalCategory, FurusatoRecord } from "@/types/tax";
 import { TaxCard } from "../components/TaxCard";
+import { SuggestInput } from "@/components/SuggestInput";
 
 registerLocale("ja", ja);
 
 export default function MedicalTaxDeductionPage() {
-  const hospitalListId = useId(); // 💡 ユニークなIDを生成（例: ":r1:" のような文字列）
   const cityListId = useId(); // 💡 ふるさと納税用の自治体リストIDも生成
   const [activeTab, setActiveTab] = useState<"medical" | "furusato">("medical");
   const [records, setRecords] = useState<MedicalRecord[]>([]);
@@ -230,20 +230,17 @@ export default function MedicalTaxDeductionPage() {
                 onChange={(e) => setFormData({ ...formData, patientName: e.target.value })}
                 required
               />
-              <input
-                type="text"
+              {/* 病院・薬局名の入力欄を SuggestInput に置き換え */}
+              <SuggestInput
                 placeholder="病院・薬局名"
-                list={hospitalListId}
-                className="p-2 border rounded-md dark:bg-slate-700 dark:text-white dark:border-slate-600"
                 value={formData.providerName}
-                onChange={(e) => setFormData({ ...formData, providerName: e.target.value })}
+                onChange={(val) => setFormData({ ...formData, providerName: val })}
+                suggestions={history.hospitals}
                 required
               />
-              <datalist id={hospitalListId}>
-                {history.hospitals.map((name) => (
-                  <option key={name} value={name} />
-                ))}
-              </datalist>
+
+              {/* 💡 ここにあった <datalist> はコンポーネントに含まれているので削除してOK！ */}
+
               <select
                 className="p-2 border rounded-md dark:bg-slate-700 dark:text-white dark:border-slate-600"
                 value={formData.category}
@@ -349,22 +346,14 @@ export default function MedicalTaxDeductionPage() {
                 className="p-3 text-lg border-2 rounded-xl font-bold w-full dark:bg-slate-700 dark:border-slate-600 outline-none focus:ring-4 focus:ring-pink-500/20"
               />
 
-              {/* 自治体名 */}
-              <input
-                type="text"
+              {/* ふるさと納税の自治体名 */}
+              <SuggestInput
                 placeholder="寄付先の自治体名"
-                list={cityListId} // 💡 これを追加
-                className="p-2 border rounded-md dark:bg-slate-700 dark:text-white dark:border-slate-600"
                 value={furusatoForm.city}
-                onChange={(e) => setFurusatoForm({ ...furusatoForm, city: e.target.value })}
+                onChange={(val) => setFurusatoForm({ ...furusatoForm, city: val })}
+                suggestions={history.cities}
                 required
               />
-              {/* 💡 候補を表示するためのリストを追加（inputのすぐ下などに） */}
-              <datalist id={cityListId}>
-                {history.cities.map((name) => (
-                  <option key={name} value={name} />
-                ))}
-              </datalist>
 
               {/* 金額 */}
               <div className="flex items-center gap-2">
