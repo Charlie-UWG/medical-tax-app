@@ -1,18 +1,18 @@
 "use client";
 
 // biome-ignore assist/source/organizeImports: < IGNORE >
-import { useState, useEffect, useMemo, useId } from "react"; // 💡 useIdを追加import type { MedicalRecord, MedicalCategory } from "@/types/medical";
+import { useState, useEffect, useMemo } from "react"; // 💡 useIdを追加import type { MedicalRecord, MedicalCategory } from "@/types/medical";
 import DatePicker, { registerLocale } from "react-datepicker";
 import { ja } from "date-fns/locale/ja"; // 日本語化用
 import "react-datepicker/dist/react-datepicker.css";
 import type { MedicalRecord, MedicalCategory, FurusatoRecord } from "@/types/tax";
 import { TaxCard } from "../components/TaxCard";
-import { SuggestInput } from "@/components/SuggestInput";
+import { SuggestInput } from "../components/SuggestInput";
+import { TaxTable } from "@/components/TaxTable";
 
 registerLocale("ja", ja);
 
 export default function MedicalTaxDeductionPage() {
-  const cityListId = useId(); // 💡 ふるさと納税用の自治体リストIDも生成
   const [activeTab, setActiveTab] = useState<"medical" | "furusato">("medical");
   const [records, setRecords] = useState<MedicalRecord[]>([]);
   const [furusatoRecords, setFurusatoRecords] = useState<FurusatoRecord[]>([]);
@@ -272,56 +272,18 @@ export default function MedicalTaxDeductionPage() {
               </button>
             </div>
           </form>
-
           {/* データ一覧 */}
-          <div className="overflow-x-auto border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm bg-white dark:bg-slate-800">
-            <table className="w-full text-left border-collapse">
-              <thead className="bg-slate-50 text-slate-600 dark:bg-slate-700 dark:text-slate-200">
-                <tr>
-                  <th className="p-3 text-xs font-bold uppercase border-b dark:border-slate-600">
-                    日付
-                  </th>
-                  <th className="p-3 text-xs font-bold uppercase border-b dark:border-slate-600">
-                    氏名
-                  </th>
-                  <th className="p-3 text-xs font-bold uppercase border-b dark:border-slate-600">
-                    場所
-                  </th>
-                  <th className="p-3 text-xs font-bold uppercase border-b dark:border-slate-600 text-right">
-                    金額
-                  </th>
-                  <th className="p-3 text-xs font-bold uppercase border-b dark:border-slate-600 text-center">
-                    操作
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                {records.map((r) => (
-                  <tr
-                    key={r.id}
-                    className="hover:bg-slate-50/80 dark:hover:bg-slate-700/50 transition-colors"
-                  >
-                    <td className="p-3 text-sm">{r.date}</td>
-                    <td className="p-3 text-sm">{r.patientName}</td>
-                    <td className="p-3 text-sm">{r.providerName}</td>
-                    <td className="p-3 text-right font-mono">¥{r.amount.toLocaleString()}</td>
-                    <td className="p-3 text-center">
-                      <button
-                        type="button"
-                        onClick={() => setRecords(records.filter((rec) => rec.id !== r.id))}
-                        className="text-red-500 font-bold text-xs"
-                      >
-                        削除
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {records.length === 0 && (
-              <div className="p-10 text-center text-slate-400">データがありません</div>
-            )}
-          </div>
+          {/* --- 医療費のテーブル部分 --- */}
+          <TaxTable
+            headers={["日付", "氏名", "場所", "金額"]}
+            color="blue"
+            rows={records.map((r) => ({
+              id: r.id,
+              cells: [r.date, r.patientName, r.providerName, `¥${r.amount.toLocaleString()}`],
+            }))}
+            onDelete={(id) => setRecords(records.filter((rec) => rec.id !== id))}
+            emptyMessage="医療費のデータがありません"
+          />
         </div>
       )}
 
@@ -402,76 +364,24 @@ export default function MedicalTaxDeductionPage() {
               </button>
             </div>
           </form>
-
           {/* ふるさと納税・データ一覧 */}
-          <div className="overflow-x-auto border border-pink-100 dark:border-pink-900/30 rounded-xl shadow-sm bg-white dark:bg-slate-800">
-            <table className="w-full text-left border-collapse">
-              <thead className="bg-pink-50 text-slate-600 dark:bg-pink-900/20 dark:text-pink-200">
-                <tr>
-                  <th className="p-3 text-xs font-bold uppercase border-b dark:border-slate-700">
-                    寄付日
-                  </th>
-                  <th className="p-3 text-xs font-bold uppercase border-b dark:border-slate-700">
-                    自治体
-                  </th>
-                  <th className="p-3 text-xs font-bold uppercase border-b dark:border-slate-700 text-right">
-                    金額
-                  </th>
-                  <th className="p-3 text-xs font-bold uppercase border-b dark:border-slate-700">
-                    返礼品メモ
-                  </th>
-                  <th className="p-3 text-xs font-bold uppercase border-b dark:border-slate-700 text-center">
-                    特例
-                  </th>
-                  <th className="p-3 text-xs font-bold uppercase border-b dark:border-slate-700 text-center">
-                    操作
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-pink-50 dark:divide-pink-900/10">
-                {furusatoRecords.map((r) => (
-                  <tr
-                    key={r.id}
-                    className="hover:bg-pink-50/50 dark:hover:bg-pink-900/5 transition-colors"
-                  >
-                    <td className="p-3 text-sm font-mono">{r.date}</td>
-                    <td className="p-3 text-sm font-bold">{r.city}</td>
-                    <td className="p-3 text-right font-mono text-pink-600 dark:text-pink-400">
-                      ¥{r.amount.toLocaleString()}
-                    </td>
-                    <td className="p-3 text-xs text-slate-500">{r.memo}</td>
-                    <td className="p-3 text-center text-xs">
-                      {r.isOneStop ? (
-                        <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">
-                          適用
-                        </span>
-                      ) : (
-                        <span className="bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">
-                          申告
-                        </span>
-                      )}
-                    </td>
-                    <td className="p-3 text-center">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setFurusatoRecords(furusatoRecords.filter((rec) => rec.id !== r.id))
-                        }
-                        className="text-red-400 hover:text-red-600 p-1"
-                      >
-                        ✕
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {furusatoRecords.length === 0 && (
-              <div className="p-10 text-center text-slate-400 text-sm">
-                寄付の記録がありません。
-              </div>
-            )}
-          </div>
+          {/* // --- ふるさと納税のテーブル部分 --- */}
+          <TaxTable
+            headers={["寄付日", "自治体", "金額", "メモ", "特例"]}
+            color="pink"
+            rows={furusatoRecords.map((r) => ({
+              id: r.id,
+              cells: [
+                r.date,
+                r.city,
+                `¥${r.amount.toLocaleString()}`,
+                r.memo,
+                r.isOneStop ? "適用" : "申告",
+              ],
+            }))}
+            onDelete={(id) => setFurusatoRecords(furusatoRecords.filter((rec) => rec.id !== id))}
+            emptyMessage="寄付の記録がありません"
+          />
         </div>
       )}
     </main>
