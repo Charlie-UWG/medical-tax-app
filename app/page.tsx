@@ -9,6 +9,8 @@ import type { MedicalRecord, MedicalCategory, FurusatoRecord } from "@/types/tax
 import { TaxCard } from "../components/TaxCard";
 import { SuggestInput } from "../components/SuggestInput";
 import { TaxTable } from "@/components/TaxTable";
+import { Libre_Barcode_128 } from "next/font/google";
+import { TaxForm } from "@/components/TaxForm";
 
 registerLocale("ja", ja);
 
@@ -199,38 +201,41 @@ export default function MedicalTaxDeductionPage() {
       {/* --- 医療費モードの内容 --- */}
       {activeTab === "medical" && (
         <div className="animate-in fade-in duration-300">
-          {/* 入力フォーム */}
-          <form
-            onSubmit={handleSubmit}
-            className="bg-slate-50 dark:bg-slate-800 p-6 rounded-xl mb-8 border border-slate-200 dark:border-slate-700 shadow-sm"
-          >
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              <div className="flex flex-col">
-                <DatePicker
-                  selected={formData.date ? new Date(formData.date) : null}
-                  onChange={(date: Date | null) => {
-                    if (date) {
-                      const yyyy = date.getFullYear();
-                      const mm = String(date.getMonth() + 1).padStart(2, "0");
-                      const dd = String(date.getDate()).padStart(2, "0");
-                      setFormData({ ...formData, date: `${yyyy}-${mm}-${dd}` });
-                    }
-                  }}
-                  locale="ja"
-                  dateFormat="yyyy/MM/dd"
-                  popperPlacement="bottom-start"
-                  className="p-3 text-lg border-2 rounded-xl font-bold w-full dark:bg-slate-700 dark:text-white dark:border-slate-600 outline-none focus:ring-4 focus:ring-blue-500/20 cursor-pointer"
-                />
-              </div>
+          <TaxForm onSubmit={handleSubmit} color="blue" buttonText="医療費を追加">
+            {/* 日付 */}
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-bold text-slate-500 ml-1">受診日</span>
+              <DatePicker
+                selected={formData.date ? new Date(formData.date) : null}
+                onChange={(date: Date | null) => {
+                  if (date) {
+                    // yyyy-mm-dd 形式で保存する場合
+                    const yyyy = date.getFullYear();
+                    const mm = String(date.getMonth() + 1).padStart(2, "0");
+                    const dd = String(date.getDate()).padStart(2, "0");
+                    setFormData({ ...formData, date: `${yyyy}-${mm}-${dd}` });
+                  }
+                }}
+                locale="ja"
+                dateFormat="yyyy/MM/dd"
+                className="p-3 text-lg border-2 rounded-xl font-bold w-full dark:bg-slate-700 dark:border-slate-600 outline-none focus:ring-4 focus:ring-blue-500/20 cursor-pointer"
+              />
+            </div>
+            {/* 氏名入力 */}
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-bold text-slate-500 ml-1">氏名</span>
               <input
                 type="text"
-                placeholder="受診者の氏名"
+                placeholder="氏名"
                 className="p-2 border rounded-md dark:bg-slate-700 dark:text-white dark:border-slate-600"
                 value={formData.patientName}
                 onChange={(e) => setFormData({ ...formData, patientName: e.target.value })}
                 required
               />
-              {/* 病院・薬局名の入力欄を SuggestInput に置き換え */}
+            </div>
+            {/* 医療機関名 */}
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-bold text-slate-500 ml-1">病院・薬局</span>
               <SuggestInput
                 placeholder="病院・薬局名"
                 value={formData.providerName}
@@ -238,40 +243,36 @@ export default function MedicalTaxDeductionPage() {
                 suggestions={history.hospitals}
                 required
               />
-
-              {/* 💡 ここにあった <datalist> はコンポーネントに含まれているので削除してOK！ */}
-
+            </div>
+            {/* 医療カテゴリー */}
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-bold text-slate-500 ml-1">区分</span>
               <select
-                className="p-2 border rounded-md dark:bg-slate-700 dark:text-white dark:border-slate-600"
+                className="p-2 border-2 rounded-xl dark:bg-slate-700 dark:text-white dark:border-slate-600 outline-none focus:ring-4 focus:ring-blue-500/20"
                 value={formData.category}
                 onChange={(e) =>
                   setFormData({ ...formData, category: e.target.value as MedicalCategory })
                 }
               >
-                <option>診療・治療</option>
-                <option>医薬品購入</option>
-                <option>介護サービス</option>
-                <option>その他の医療費（交通費など）</option>
+                <option value="診療・治療">診療・治療</option>
+                <option value="医薬品購入">医薬品購入</option>
+                <option value="介護サービス">介護サービス</option>
+                <option value="その他の医療費（交通費など）">その他の医療費（交通費など）</option>
               </select>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-slate-500 whitespace-nowrap">金額:</span>
-                <input
-                  type="number"
-                  className="p-2 border rounded-md dark:bg-slate-700 dark:text-white dark:border-slate-600 w-full font-mono"
-                  value={formData.amount || ""}
-                  onChange={(e) => setFormData({ ...formData, amount: Number(e.target.value) })}
-                  onFocus={(e) => e.target.select()}
-                  required
-                />
-              </div>
-              <button
-                type="submit"
-                className="bg-blue-600 text-white rounded-md font-bold hover:bg-blue-700 transition shadow-md active:scale-95"
-              >
-                追加する
-              </button>
             </div>
-          </form>
+            {/* 金額 */}
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-bold text-slate-500 ml-1">金額</span>
+              <input
+                type="number"
+                placeholder="金額"
+                className="p-2 border rounded-md dark:bg-slate-700 dark:text-white dark:border-slate-600"
+                value={formData.amount || ""}
+                onChange={(e) => setFormData({ ...formData, amount: Number(e.target.value) })}
+                required
+              />
+            </div>
+          </TaxForm>
           {/* データ一覧 */}
           {/* --- 医療費のテーブル部分 --- */}
           <TaxTable
@@ -290,12 +291,10 @@ export default function MedicalTaxDeductionPage() {
       {/* --- ふるさと納税モードの内容 --- */}
       {activeTab === "furusato" && (
         <div className="animate-in fade-in duration-300">
-          <form
-            onSubmit={handleFurusatoSubmit}
-            className="bg-pink-50/50 dark:bg-pink-900/10 p-6 rounded-xl mb-8 border border-pink-100 dark:border-pink-900/30 shadow-sm"
-          >
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              {/* 日付 */}
+          <TaxForm onSubmit={handleFurusatoSubmit} color="pink" buttonText="寄付を追加">
+            {/* 日付 */}
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-bold text-slate-500 ml-1">寄付日</span>
               <DatePicker
                 selected={furusatoForm.date ? new Date(furusatoForm.date) : null}
                 onChange={(date: Date | null) => {
@@ -305,10 +304,12 @@ export default function MedicalTaxDeductionPage() {
                 }}
                 locale="ja"
                 dateFormat="yyyy/MM/dd"
-                className="p-3 text-lg border-2 rounded-xl font-bold w-full dark:bg-slate-700 dark:border-slate-600 outline-none focus:ring-4 focus:ring-pink-500/20"
+                className="p-3 text-lg border-2 rounded-xl font-bold w-full dark:bg-slate-700 dark:border-slate-600 outline-none focus:ring-4 focus:ring-pink-500/20 cursor-pointer"
               />
-
-              {/* ふるさと納税の自治体名 */}
+            </div>
+            {/* ふるさと納税の自治体名 */}
+            <div className="flex flex flex-col gap-1">
+              <span className="text-xs font-bold text-slate-500 ml-1">自治体名</span>
               <SuggestInput
                 placeholder="寄付先の自治体名"
                 value={furusatoForm.city}
@@ -316,54 +317,49 @@ export default function MedicalTaxDeductionPage() {
                 suggestions={history.cities}
                 required
               />
-
-              {/* 金額 */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-slate-500">金額:</span>
-                <input
-                  type="number"
-                  className="p-2 border rounded-md dark:bg-slate-700 w-full font-mono"
-                  value={furusatoForm.amount || ""}
-                  onChange={(e) =>
-                    setFurusatoForm({ ...furusatoForm, amount: Number(e.target.value) })
-                  }
-                  required
-                />
-              </div>
-
-              {/* メモ */}
+            </div>
+            {/* 金額 */}
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-bold text-slate-500 ml-1">金額</span>
+              <input
+                type="number"
+                placeholder="金額"
+                className="p-2 border rounded-md dark:bg-slate-700 dark:text-white dark:border-slate-600"
+                value={furusatoForm.amount || ""}
+                onChange={(e) =>
+                  setFurusatoForm({ ...furusatoForm, amount: Number(e.target.value) })
+                }
+                required
+              />
+            </div>
+            {/* メモ */}
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-bold text-slate-500 ml-1">メモ</span>
               <input
                 type="text"
                 placeholder="返礼品のメモ（例：お米10kg）"
-                className="p-2 border rounded-md dark:bg-slate-700 col-span-2"
+                className="p-2 border rounded-md dark:bg-slate-700 dark:text-white dark:border-slate-600"
                 value={furusatoForm.memo}
                 onChange={(e) => setFurusatoForm({ ...furusatoForm, memo: e.target.value })}
               />
-
-              {/* ワンストップ特例スイッチ */}
-              <label className="flex items-center gap-2 cursor-pointer select-none">
+            </div>
+            {/* 5. ワンストップ特例（追加分） */}
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-bold text-slate-500 ml-1">特例申請</span>
+              <label className="flex items-center gap-2 p-3 border-2 rounded-xl dark:border-slate-600 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
                 <input
                   type="checkbox"
-                  className="w-5 h-5 accent-pink-500"
+                  className="w-5 h-5 accent-pink-600"
                   checked={furusatoForm.isOneStop}
                   onChange={(e) =>
                     setFurusatoForm({ ...furusatoForm, isOneStop: e.target.checked })
                   }
                 />
-                <span className="text-sm font-bold text-slate-600 dark:text-slate-300">
-                  ワンストップ特例を利用
-                </span>
+                <span className="text-sm font-bold dark:text-slate-300">利用する</span>
               </label>
-
-              {/* 追加ボタン */}
-              <button
-                type="submit"
-                className="bg-pink-600 text-white rounded-md font-bold hover:bg-pink-700 transition shadow-md active:scale-95 md:col-start-3"
-              >
-                寄付を追加
-              </button>
             </div>
-          </form>
+          </TaxForm>
+
           {/* ふるさと納税・データ一覧 */}
           {/* // --- ふるさと納税のテーブル部分 --- */}
           <TaxTable
