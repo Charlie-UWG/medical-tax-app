@@ -11,6 +11,7 @@ import { SuggestInput } from "../components/SuggestInput";
 import { TaxTable } from "@/components/TaxTable";
 import { Libre_Barcode_128 } from "next/font/google";
 import { TaxForm } from "@/components/TaxForm";
+import type { SyntheticEvent } from "react";
 
 registerLocale("ja", ja);
 
@@ -84,7 +85,7 @@ export default function MedicalTaxDeductionPage() {
     return { total, netExpense, medicalDeduction, furusatoTotal, estimatedRefund };
   }, [records, furusatoRecords]); // 💡 両方の変化を監視
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
     const newRecord: MedicalRecord = {
       ...formData,
@@ -111,7 +112,7 @@ export default function MedicalTaxDeductionPage() {
     setFormData({ ...formData, providerName: "", amount: 0, reimbursement: 0 });
   };
   // ふるさと納税の保存処理（handleSubmitとは別に作成）
-  const handleFurusatoSubmit = (e: React.FormEvent) => {
+  const handleFurusatoSubmit = (e: SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
     const newRecord: FurusatoRecord = {
       ...furusatoForm,
