@@ -122,11 +122,12 @@ export default function MedicalTaxDeductionPage() {
     if (furusatoForm.city) {
       const newCities = Array.from(new Set([furusatoForm.city, ...history.cities])).slice(0, 10);
 
-      const newHistory = { ...history, cities: newCities };
-      setHistory(newHistory);
-      localStorage.setItem("taxbuddy_history", JSON.stringify(newHistory));
+      setHistory((prev) => {
+        const updatedHistory = { ...prev, cities: newCities };
+        localStorage.setItem("taxbuddy_history", JSON.stringify(updatedHistory));
+        return updatedHistory;
+      });
     }
-
     setFurusatoForm({ ...furusatoForm, city: "", amount: 0, memo: "" });
   };
 
