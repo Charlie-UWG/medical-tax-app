@@ -7,7 +7,7 @@
     "dev": "next dev",
     "build": "next build",
     "electron-dev": "NODE_ENV=development electron .",
-    "dist": "next build && electron-builder",
+    "dist": "next build && electron-builder --mac universal",
     "format": "biome format --write",
     "test-prod": "NODE_ENV=production electron ."
   },
@@ -17,19 +17,18 @@
     "mac": {
       "category": "public.app-category.finance",
       "target": [
-        "dmg"
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
       ]
     },
     "win": {
       "target": [
-        "nsis",
-        "zip"
-      ]
-    },
-    "linux": {
-      "target": [
-        "AppImage",
-        "deb"
+        "nsis"
       ]
     }
   },
