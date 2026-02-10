@@ -310,7 +310,7 @@ export default function MedicalTaxDeductionPage() {
 
       {/* --- ふるさと納税モードの内容 --- */}
       {activeTab === "furusato" && (
-        <div className="animate-in fade-in duration-300 flex-1 flex flex-col overflow-hidden">
+        <div className="animate-in fade-in duration-300 flex-1 flex flex-col overflow-hidden min-h-0">
           <TaxForm onSubmit={handleFurusatoSubmit} color="pink" buttonText="寄付を追加">
             {/* 日付 */}
             <div className="flex flex-col gap-1">
