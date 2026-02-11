@@ -1,10 +1,10 @@
 {
-  "name": "medical-deduction-app",
+  "name": "tax-buddy",
   "version": "1.2.0",
   "private": true,
   "main": "main.js",
   "scripts": {
-    "dev": "next dev",
+    "dev": "concurrently \"next dev\" \"wait-on http://localhost:3000 && npm run electron-dev\"",
     "build": "next build",
     "electron-dev": "NODE_ENV=development electron .",
     "dist": "next build && electron-builder --mac",
@@ -47,10 +47,12 @@
     "@types/react-dom": "^19",
     "autoprefixer": "^10.4.24",
     "babel-plugin-react-compiler": "1.0.0",
+    "concurrently": "^9.2.1",
     "electron": "^40.2.1",
     "electron-builder": "^26.7.0",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.18",
-    "typescript": "^5"
+    "typescript": "^5",
+    "wait-on": "^9.0.3"
   }
 }
