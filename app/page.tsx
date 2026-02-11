@@ -1,21 +1,20 @@
 "use client";
 
-// biome-ignore assist/source/organizeImports: < IGNORE >
-import { useState, useEffect, useMemo } from "react"; // 💡 useIdを追加import type { MedicalRecord, MedicalCategory } from "@/types/medical";
+import { ja } from "date-fns/locale/ja";
+import { useEffect, useMemo, useState } from "react";
 import DatePicker, { registerLocale } from "react-datepicker";
-import { ja } from "date-fns/locale/ja"; // 日本語化用
+import type { FurusatoRecord, MedicalCategory, MedicalRecord } from "@/types/tax";
 import "react-datepicker/dist/react-datepicker.css";
-import type { MedicalRecord, MedicalCategory, FurusatoRecord } from "@/types/tax";
-import { TaxCard } from "../components/TaxCard";
-import { SuggestInput } from "../components/SuggestInput";
-import { TaxTable } from "../components/TaxTable";
-import { TaxForm, TaxLabel } from "../components/TaxForm";
 import type { SyntheticEvent } from "react";
+import { SuggestInput } from "../components/SuggestInput";
+import { TaxCard } from "../components/TaxCard";
+import { TaxForm, TaxLabel } from "../components/TaxForm";
+import { TaxTable } from "../components/TaxTable";
 
 registerLocale("ja", ja);
 
 export default function TaxBuddyPage() {
-  const [mounted, setMounted] = useState(false); // 💡 これを追加
+  const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState<"medical" | "furusato">("medical");
   const [records, setRecords] = useState<MedicalRecord[]>([]);
   const [furusatoRecords, setFurusatoRecords] = useState<FurusatoRecord[]>([]);
@@ -32,123 +31,127 @@ export default function TaxBuddyPage() {
     city: "",
     amount: 0,
     memo: "",
-    isOneStop: true, // デフォルトでチェックあり
+    isOneStop: true,
     isReceived: false,
   });
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc"); // ソート状態を管理するState
-
-  // 1. 履歴を管理する箱を作る（State）
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [history, setHistory] = useState<{ hospitals: string[]; cities: string[] }>({
     hospitals: [],
     cities: [],
   });
 
+  // 1. 集計ロジック（病院別合計）
+  const etaxSummary = useMemo(() => {
+    const summaryMap: Record<
+      string,
+      { patientName: string; providerName: string; totalAmount: number }
+    > = {};
+    records.forEach((r) => {
+      const key = `${r.patientName}-${r.providerName}`;
+      if (!summaryMap[key]) {
+        summaryMap[key] = {
+          patientName: r.patientName,
+          providerName: r.providerName,
+          totalAmount: 0,
+        };
+      }
+      summaryMap[key].totalAmount += r.amount;
+    });
+    return Object.values(summaryMap);
+  }, [records]);
+
+  // 2. JSON読み込みロジック
   useEffect(() => {
-    // 1. 医療費データを読み込む
-    const savedMedical = localStorage.getItem("medical-records");
-    if (savedMedical) {
-      setRecords(JSON.parse(savedMedical));
-    }
+    const initData = async () => {
+      // APIが準備できるまで最大2秒待つ（念のため）
+      let retryCount = 0;
+      while (!window.electronAPI && retryCount < 20) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        retryCount++;
+      }
+      const api = window.electronAPI;
+      // API がまだない場合は、エラーを出さずに mounted だけ true にして終了する
+      if (!api) {
+        console.warn("electronAPI is not available yet. Retrying might be needed.");
+        setMounted(true);
+        return;
+      }
+      try {
+        const savedData = await api.loadData();
+        console.log("Loaded data:", savedData);
+        if (savedData) {
+          if (savedData.medical) setRecords(savedData.medical);
+          if (savedData.furusato) setFurusatoRecords(savedData.furusato);
+          if (savedData.history) setHistory(savedData.history);
+        }
+      } catch (error) {
+        console.error("Failed to load data:", error);
+      }
+      setMounted(true);
+    };
+    initData();
+  }, []);
 
-    // 💡 2. ふるさと納税データを読み込む
-    const savedFurusato = localStorage.getItem("furusato-records");
-    if (savedFurusato) {
-      setFurusatoRecords(JSON.parse(savedFurusato));
-    }
-
-    // 3. 入力候補（サジェスト）の履歴を読み込む
-    const savedHistory = localStorage.getItem("taxbuddy_history");
-    if (savedHistory) {
-      setHistory(JSON.parse(savedHistory));
-    }
-    setMounted(true); // 💡 一番最後に追加！これで準備完了
-  }, []); // 最初に1回だけ実行
-
-  // 保存
-  // 既存のuseEffect（保存用）を修正
+  // 3. JSON保存ロジック
   useEffect(() => {
-    localStorage.setItem("medical-records", JSON.stringify(records));
-    localStorage.setItem("furusato-records", JSON.stringify(furusatoRecords)); // 💡 これを追加！
-  }, [records, furusatoRecords]);
+    if (mounted) {
+      const dataToSave = {
+        medical: records,
+        furusato: furusatoRecords,
+        history: history,
+      };
+      window.electronAPI?.saveData(dataToSave);
+    }
+  }, [records, furusatoRecords, history, mounted]);
 
-  // --- 計算ロジック (useMemoで最適化) ---
+  // 4. 計算ロジック (ダッシュボード用)
   const stats = useMemo(() => {
-    // 医療費の計算
     const total = records.reduce((sum, r) => sum + r.amount, 0);
     const totalReimbursement = records.reduce((sum, r) => sum + r.reimbursement, 0);
     const netExpense = total - totalReimbursement;
     const medicalDeduction = Math.max(0, netExpense - 100000);
-
-    // 💡 ふるさと納税の計算を追加
     const furusatoTotal = furusatoRecords.reduce((sum, r) => sum + r.amount, 0);
-
-    // 最終的な還付・減税見込（医療費控除分 + ふるさと納税は自己負担2000円を除く額が控除対象）
     const estimatedRefund = Math.floor(medicalDeduction * 0.2) + Math.max(0, furusatoTotal - 2000);
 
     return { total, netExpense, medicalDeduction, furusatoTotal, estimatedRefund };
-  }, [records, furusatoRecords]); // 💡 両方の変化を監視
+  }, [records, furusatoRecords]);
 
-  // Electron側でJavaScriptの準備が整うまで、一旦「無」を返して不整合を防ぎます
-  if (!mounted) {
-    return <div className="min-h-screen bg-white dark:bg-slate-900" />;
-  }
-
+  // 5. フォーム送信処理 (医療費)
   const handleSubmit = (e: SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const newRecord: MedicalRecord = {
-      ...formData,
-      id: crypto.randomUUID(),
-    };
-    setRecords([newRecord, ...records]);
+    const newRecord: MedicalRecord = { ...formData, id: crypto.randomUUID() };
+    const newRecords = [newRecord, ...records];
+    setRecords(newRecords);
 
-    // 💡 病院名を履歴に保存する処理を追加！
     if (formData.providerName) {
-      // 重複を除去して最新10件を保持
       const newHospitals = Array.from(new Set([formData.providerName, ...history.hospitals])).slice(
         0,
         10,
       );
-
-      const newHistory = { ...history, hospitals: newHospitals };
-      setHistory(newHistory);
-
-      // ローカルストレージにも保存して、ブラウザを閉じても忘れないようにする
-      localStorage.setItem("taxbuddy_history", JSON.stringify(newHistory));
+      setHistory({ ...history, hospitals: newHospitals });
     }
-
-    // フォームをリセット
     setFormData({ ...formData, providerName: "", amount: 0, reimbursement: 0 });
   };
-  // ふるさと納税の保存処理（handleSubmitとは別に作成）
+
+  // 6. フォーム送信処理 (ふるさと納税)
   const handleFurusatoSubmit = (e: SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const newRecord: FurusatoRecord = {
-      ...furusatoForm,
-      id: crypto.randomUUID(),
-    };
+    const newRecord: FurusatoRecord = { ...furusatoForm, id: crypto.randomUUID() };
     setFurusatoRecords([newRecord, ...furusatoRecords]);
-    // 💡 自治体名を履歴に保存
+
     if (furusatoForm.city) {
       const newCities = Array.from(new Set([furusatoForm.city, ...history.cities])).slice(0, 10);
-
-      setHistory((prev) => {
-        const updatedHistory = { ...prev, cities: newCities };
-        localStorage.setItem("taxbuddy_history", JSON.stringify(updatedHistory));
-        return updatedHistory;
-      });
+      setHistory({ ...history, cities: newCities });
     }
     setFurusatoForm({ ...furusatoForm, city: "", amount: 0, memo: "" });
   };
 
-  // 特定のレコードのチェック状態を反転させる関数
   const toggleFurusatoReceived = (id: string) => {
-    const update = furusatoRecords.map((record) =>
-      record.id === id ? { ...record, isReceived: !record.isReceived } : record,
+    setFurusatoRecords(
+      furusatoRecords.map((r) => (r.id === id ? { ...r, isReceived: !r.isReceived } : r)),
     );
-    setFurusatoRecords(update);
   };
 
-  // CSVエクスポート機能
   const exportToCsv = () => {
     if (records.length === 0) return alert("データがありません");
     const headers = ["日付", "受診者", "病院・薬局", "区分", "支払金額", "補填金額"];
@@ -166,34 +169,28 @@ export default function TaxBuddyPage() {
     URL.revokeObjectURL(url);
   };
 
-  // ソート機能を追加
   const handleSort = (header: string) => {
     const nextOrder = sortOrder === "asc" ? "desc" : "asc";
     setSortOrder(nextOrder);
-
-    if (records.length === 0) {
-      return;
-    }
     if (activeTab === "medical") {
-      // 医療費タブの場合のソート処理
-      const sorted = [...records].sort((a, b) => {
-        if (!a.date || !b.date) return 0;
-        return nextOrder === "asc" ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date);
-      });
-      setRecords(sorted);
+      setRecords(
+        [...records].sort((a, b) =>
+          nextOrder === "asc" ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date),
+        ),
+      );
     } else {
-      // ふるさと納税タブの場合のソート処理
-      const sortedFurusato = [...furusatoRecords].sort((a, b) => {
-        if (!a.date || !b.date) return 0;
-        return nextOrder === "asc" ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date);
-      });
-      setFurusatoRecords(sortedFurusato);
+      setFurusatoRecords(
+        [...furusatoRecords].sort((a, b) =>
+          nextOrder === "asc" ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date),
+        ),
+      );
     }
   };
 
+  if (!mounted) return <div className="min-h-screen bg-white dark:bg-slate-900" />;
+
   return (
     <main className="h-screen flex flex-col overflow-hidden p-8 max-w-5xl mx-auto font-sans min-h-screen transition-colors duration-300 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
-      {/* ヘッダー部分 */}
       <div className="flex justify-between items-center mb-8 flex-none">
         <h1 className="text-3xl font-bold text-center text-blue-600 dark:text-blue-400">
           TaxBuddy 🩺🎁
@@ -207,34 +204,23 @@ export default function TaxBuddyPage() {
         </button>
       </div>
 
-      {/* タブセレクター */}
       <div className="flex flex-none p-1 bg-slate-100 dark:bg-slate-800 rounded-xl mb-6 w-full max-w-md mx-auto shadow-inner">
         <button
           type="button"
           onClick={() => setActiveTab("medical")}
-          className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-bold rounded-lg transition-all ${
-            activeTab === "medical"
-              ? "bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-blue-400"
-              : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
-          }`}
+          className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-bold rounded-lg transition-all ${activeTab === "medical" ? "bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-blue-400" : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"}`}
         >
           🩺 医療費控除
         </button>
         <button
           type="button"
           onClick={() => setActiveTab("furusato")}
-          className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-bold rounded-lg transition-all ${
-            activeTab === "furusato"
-              ? "bg-white dark:bg-slate-700 shadow-sm text-pink-600 dark:text-pink-400"
-              : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
-          }`}
+          className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-bold rounded-lg transition-all ${activeTab === "furusato" ? "bg-white dark:bg-slate-700 shadow-sm text-pink-600 dark:text-pink-400" : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"}`}
         >
           🎁 ふるさと納税
         </button>
       </div>
 
-      {/* 集計ダッシュボード (ここは常に表示) */}
-      {/* 数値の表示は右寄せ */}
       <div className="flex-none grid grid-cols-1 md:grid-cols-4 gap-4 mb-8 text-right">
         <TaxCard label="実質負担額 (医療費)" amount={stats.netExpense} color="slate" />
         <TaxCard label="医療費控除額 (概算)" amount={stats.medicalDeduction} color="blue" />
@@ -242,18 +228,15 @@ export default function TaxBuddyPage() {
         <TaxCard label="還付・減税見込額" amount={stats.estimatedRefund} color="green" />
       </div>
 
-      {/* --- 医療費モードの内容 --- */}
       {activeTab === "medical" && (
-        <div className="animate-in fade-in duration-300 flex-1 flex flex-col overflow-hidden min-h-0">
+        <div className="animate-in fade-in duration-300 flex-1 flex flex-col overflow-y-auto pr-2 custom-scrollbar">
           <TaxForm onSubmit={handleSubmit} color="blue" buttonText="医療費を追加">
-            {/* 日付 */}
             <div className="flex flex-col gap-1">
               <TaxLabel>受診日</TaxLabel>
               <DatePicker
                 selected={formData.date ? new Date(formData.date) : null}
                 onChange={(date: Date | null) => {
                   if (date) {
-                    // yyyy-mm-dd 形式で保存する場合
                     const yyyy = date.getFullYear();
                     const mm = String(date.getMonth() + 1).padStart(2, "0");
                     const dd = String(date.getDate()).padStart(2, "0");
@@ -265,7 +248,6 @@ export default function TaxBuddyPage() {
                 className="p-3 text-lg border-2 rounded-xl font-bold w-full h-[52px] dark:bg-slate-700 dark:border-slate-600 outline-none focus:ring-4 focus:ring-blue-500/20 cursor-pointer"
               />
             </div>
-            {/* 氏名入力 */}
             <div className="flex flex-col gap-1">
               <TaxLabel>氏名</TaxLabel>
               <input
@@ -277,7 +259,6 @@ export default function TaxBuddyPage() {
                 required
               />
             </div>
-            {/* 医療機関名 */}
             <div className="flex flex-col gap-1">
               <TaxLabel>病院・薬局</TaxLabel>
               <SuggestInput
@@ -285,15 +266,14 @@ export default function TaxBuddyPage() {
                 value={formData.providerName}
                 onChange={(val) => setFormData({ ...formData, providerName: val })}
                 suggestions={history.hospitals}
-                className="h-[52px]" // ← ここで高さを指定！
+                className="h-[52px]"
                 required
               />
             </div>
-            {/* 医療カテゴリー */}
             <div className="flex flex-col gap-1">
               <TaxLabel>区分</TaxLabel>
               <select
-                className="h-[52px] p-2 border-2 rounded-xl dark:bg-slate-700 dark:text-white dark:border-slate-600 outline-none focus:ring-4 focus:ring-blue-500/20"
+                className="h-[52px] p-2 border-2 rounded-xl dark:bg-slate-700 dark:text-white dark:border-slate-600"
                 value={formData.category}
                 onChange={(e) =>
                   setFormData({ ...formData, category: e.target.value as MedicalCategory })
@@ -305,74 +285,107 @@ export default function TaxBuddyPage() {
                 <option value="その他の医療費（交通費など）">その他の医療費（交通費など）</option>
               </select>
             </div>
-            {/* 金額 */}
             <div className="flex flex-col gap-1">
               <TaxLabel>金額</TaxLabel>
               <input
                 type="number"
                 placeholder="金額"
-                className="h-[52px] p-2 border rounded-md dark:bg-slate-700 text-right dark:text-white dark:border-slate-600"
+                className="h-[52px] p-2 border rounded-md dark:bg-slate-700 text-right"
                 value={formData.amount || ""}
                 onChange={(e) => setFormData({ ...formData, amount: Number(e.target.value) })}
                 required
               />
             </div>
           </TaxForm>
-          {/* データ一覧 */}
-          {/* --- 医療費のテーブル部分 --- */}
-          <TaxTable
-            headers={["日付", "氏名", "場所", "金額"]}
-            color="blue"
-            rows={records.map((r) => ({
-              id: r.id,
-              cells: [r.date, r.patientName, r.providerName, `¥${r.amount.toLocaleString()}`],
-            }))}
-            onDelete={(id) => setRecords(records.filter((rec) => rec.id !== id))}
-            emptyMessage="医療費のデータがありません"
-            sortOrder={sortOrder}
-            onSort={handleSort}
-          />
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8 pb-20">
+            <div className="lg:col-span-2 flex flex-col gap-4">
+              <h3 className="font-bold flex items-center gap-2 text-blue-600">📋 入力明細</h3>
+              <TaxTable
+                headers={["日付", "氏名", "場所", "金額"]}
+                color="blue"
+                rows={records.map((r) => ({
+                  id: r.id,
+                  cells: [r.date, r.patientName, r.providerName, `¥${r.amount.toLocaleString()}`],
+                }))}
+                onDelete={(id) => setRecords(records.filter((rec) => rec.id !== id))}
+                emptyMessage="医療費のデータがありません"
+                sortOrder={sortOrder}
+                onSort={handleSort}
+              />
+            </div>
+
+            <div className="flex flex-col gap-4">
+              <div className="p-6 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700">
+                <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200 flex items-center gap-2 mb-4">
+                  <span className="bg-blue-500 text-white text-[10px] py-0.5 px-2 rounded font-black">
+                    e-Tax用
+                  </span>
+                  病院別の合計
+                </h3>
+                {etaxSummary.length > 0 ? (
+                  <div className="flex flex-col gap-2">
+                    {etaxSummary.map((s) => (
+                      <div
+                        key={`${s.patientName}-${s.providerName}`}
+                        className="bg-white dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700 flex justify-between items-center shadow-sm"
+                      >
+                        <div className="flex flex-col">
+                          <span className="text-[10px] text-slate-400 font-bold">
+                            {s.patientName}
+                          </span>
+                          <span className="text-sm font-bold truncate max-w-[120px]">
+                            {s.providerName}
+                          </span>
+                        </div>
+                        <span className="text-blue-600 dark:text-blue-400 font-mono font-bold text-sm">
+                          ¥{s.totalAmount.toLocaleString()}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-center text-xs text-slate-400">データなし</p>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* --- ふるさと納税モードの内容 --- */}
       {activeTab === "furusato" && (
-        <div className="animate-in fade-in duration-300 flex-1 flex flex-col overflow-hidden min-h-0">
+        <div className="animate-in fade-in duration-300 flex-1 flex flex-col overflow-y-auto pr-2 custom-scrollbar">
           <TaxForm onSubmit={handleFurusatoSubmit} color="pink" buttonText="寄付を追加">
-            {/* 日付 */}
             <div className="flex flex-col gap-1">
               <TaxLabel>寄付日</TaxLabel>
               <DatePicker
                 selected={furusatoForm.date ? new Date(furusatoForm.date) : null}
                 onChange={(date: Date | null) => {
-                  if (date) {
+                  if (date)
                     setFurusatoForm({ ...furusatoForm, date: date.toISOString().split("T")[0] });
-                  }
                 }}
                 locale="ja"
                 dateFormat="yyyy/MM/dd"
                 className="p-3 text-lg border-2 rounded-xl font-bold w-full dark:bg-slate-700 dark:border-slate-600 outline-none focus:ring-4 focus:ring-pink-500/20 cursor-pointer"
               />
             </div>
-            {/* ふるさと納税の自治体名 */}
-            <div className="flex flex flex-col gap-1">
+            <div className="flex flex-col gap-1">
               <TaxLabel>自治体名</TaxLabel>
               <SuggestInput
                 placeholder="寄付先の自治体名"
                 value={furusatoForm.city}
                 onChange={(val) => setFurusatoForm({ ...furusatoForm, city: val })}
                 suggestions={history.cities}
-                className="h-[52px]" // ← ここで高さを指定！
+                className="h-[52px]"
                 required
               />
             </div>
-            {/* 金額 */}
             <div className="flex flex-col gap-1">
               <TaxLabel>金額</TaxLabel>
               <input
                 type="number"
                 placeholder="金額"
-                className="h-[52px] p-2 border rounded-md dark:bg-slate-700 dark:text-white dark:border-slate-600"
+                className="h-[52px] p-2 border rounded-md dark:bg-slate-700"
                 value={furusatoForm.amount || ""}
                 onChange={(e) =>
                   setFurusatoForm({ ...furusatoForm, amount: Number(e.target.value) })
@@ -380,21 +393,19 @@ export default function TaxBuddyPage() {
                 required
               />
             </div>
-            {/* メモ */}
             <div className="flex flex-col gap-1">
               <TaxLabel>返礼品のメモ</TaxLabel>
               <input
                 type="text"
-                placeholder="返礼品のメモ（例：お米10kg）"
-                className="h-[52px] p-2 border rounded-md dark:bg-slate-700 dark:text-white dark:border-slate-600"
+                placeholder="返礼品のメモ"
+                className="h-[52px] p-2 border rounded-md dark:bg-slate-700"
                 value={furusatoForm.memo}
                 onChange={(e) => setFurusatoForm({ ...furusatoForm, memo: e.target.value })}
               />
             </div>
-            {/* 5. ワンストップ特例（追加分） */}
             <div className="flex flex-col gap-1">
               <TaxLabel>特例申請</TaxLabel>
-              <label className="flex items-center gap-2 p-3 border-2 rounded-xl dark:border-slate-600 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+              <label className="flex items-center gap-2 p-3 border-2 rounded-xl dark:border-slate-600 cursor-pointer">
                 <input
                   type="checkbox"
                   className="w-5 h-5 accent-pink-600"
@@ -408,8 +419,6 @@ export default function TaxBuddyPage() {
             </div>
           </TaxForm>
 
-          {/* ふるさと納税・データ一覧 */}
-          {/* // --- ふるさと納税のテーブル部分 --- */}
           <TaxTable
             headers={["証明書", "寄付日", "自治体", "金額", "メモ", "特例"]}
             color="pink"
@@ -439,4 +448,4 @@ export default function TaxBuddyPage() {
       )}
     </main>
   );
-}
+} // ここが TaxBuddyPage の閉じカッコ！
