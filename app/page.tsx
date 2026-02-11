@@ -13,6 +13,38 @@ import { TaxTable } from "../components/TaxTable";
 
 registerLocale("ja", ja);
 
+// e-Taxの4区分を判定して表示するパーツ
+const ETagCategoryChecks = ({ usedCategories }: { usedCategories: Set<string> }) => {
+  const categories = [
+    { label: "診", id: "診療・治療" },
+    { label: "薬", id: "医薬品購入" },
+    { label: "介", id: "介護サービス" },
+    { label: "他", id: "その他の医療費（交通費など）" },
+  ];
+
+  return (
+    <div className="flex gap-1 mt-2">
+      {categories.map((cat) => {
+        const isActive = usedCategories.has(cat.id);
+        return (
+          <div
+            key={cat.id}
+            className={`text-[9px] w-5 h-5 flex items-center justify-center rounded border font-bold ${
+              isActive
+                ? "bg-blue-600 border-blue-600 text-white"
+                : "bg-transparent border-slate-300 text-slate-300 dark:border-slate-600 dark:text-slate-600"
+            }`}
+            title={cat.id} // ホバー時にフルネーム表示
+          >
+            {isActive ? "✓" : ""}
+            <span className={isActive ? "hidden" : "block"}>{cat.label}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 export default function TaxBuddyPage() {
   const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState<"medical" | "furusato">("medical");
@@ -40,11 +72,16 @@ export default function TaxBuddyPage() {
     cities: [],
   });
 
-  // 1. 集計ロジック（病院別合計）
+  // 1. 集計ロジック（病院別合計 + 使用区分の抽出）
   const etaxSummary = useMemo(() => {
     const summaryMap: Record<
       string,
-      { patientName: string; providerName: string; totalAmount: number }
+      {
+        patientName: string;
+        providerName: string;
+        totalAmount: number;
+        usedCategories: Set<string>;
+      }
     > = {};
     records.forEach((r) => {
       const key = `${r.patientName}-${r.providerName}`;
@@ -53,9 +90,11 @@ export default function TaxBuddyPage() {
           patientName: r.patientName,
           providerName: r.providerName,
           totalAmount: 0,
+          usedCategories: new Set(),
         };
       }
       summaryMap[key].totalAmount += r.amount;
+      summaryMap[key].usedCategories.add(r.category);
     });
     return Object.values(summaryMap);
   }, [records]);
@@ -328,19 +367,24 @@ export default function TaxBuddyPage() {
                     {etaxSummary.map((s) => (
                       <div
                         key={`${s.patientName}-${s.providerName}`}
-                        className="bg-white dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700 flex justify-between items-center shadow-sm"
+                        className="bg-white dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700 flex flex-col shadow-sm"
                       >
-                        <div className="flex flex-col">
-                          <span className="text-[10px] text-slate-400 font-bold">
-                            {s.patientName}
-                          </span>
-                          <span className="text-sm font-bold truncate max-w-[120px]">
-                            {s.providerName}
+                        <div className="flex justify-between items-start">
+                          <div className="flex flex-col">
+                            <span className="text-[10px] text-slate-400 font-bold">
+                              {s.patientName}
+                            </span>
+                            <span className="text-sm font-bold truncate max-w-[120px]">
+                              {s.providerName}
+                            </span>
+                          </div>
+                          <span className="text-blue-600 dark:text-blue-400 font-mono font-bold text-sm">
+                            ¥{s.totalAmount.toLocaleString()}
                           </span>
                         </div>
-                        <span className="text-blue-600 dark:text-blue-400 font-mono font-bold text-sm">
-                          ¥{s.totalAmount.toLocaleString()}
-                        </span>
+
+                        {/* ここでチェックボックスを表示 */}
+                        <ETagCategoryChecks usedCategories={s.usedCategories} />
                       </div>
                     ))}
                   </div>
