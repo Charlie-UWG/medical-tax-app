@@ -73,6 +73,10 @@ export default function TaxBuddyPage() {
     cities: [],
   });
   const [showEtaxModal, setShowEtaxModal] = useState(false);
+  const [deletedRecords, setDeletedRecords] = useState<MedicalRecord[]>([]);
+  const [showTrashModal, setShowTrashModal] = useState(false);
+  const [lastDeleted, setLastDeleted] = useState<MedicalRecord | null>(null);
+  const [showUndo, setShowUndo] = useState(false);
 
   // 1. 集計ロジック（補填金額の集計も追加）
   const etaxSummary = useMemo(() => {
@@ -104,33 +108,38 @@ export default function TaxBuddyPage() {
     return Object.values(summaryMap);
   }, [records]);
 
-  // 2. JSON読み込みロジック
+  // 2. JSON読み込みロジック（Intel Mac対応リトライ版）
   useEffect(() => {
     const initData = async () => {
-      // APIが準備できるまで最大2秒待つ（念のため）
+      // APIが準備されるまで最大2秒待つ（Intel Mac等の遅延対策）
       let retryCount = 0;
       while (!window.electronAPI && retryCount < 20) {
         await new Promise((resolve) => setTimeout(resolve, 100));
         retryCount++;
       }
+
       const api = window.electronAPI;
-      // API がまだない場合は、エラーを出さずに mounted だけ true にして終了する
       if (!api) {
-        console.warn("electronAPI is not available yet. Retrying might be needed.");
+        console.warn("electronAPI is not available yet.");
         setMounted(true);
         return;
       }
+
       try {
         const savedData = await api.loadData();
         console.log("Loaded data:", savedData);
         if (savedData) {
+          // 各ステートへの反映（データが存在する場合のみ）
           if (savedData.medical) setRecords(savedData.medical);
           if (savedData.furusato) setFurusatoRecords(savedData.furusato);
           if (savedData.history) setHistory(savedData.history);
+          // ゴミ箱データの復元を追加
+          if (savedData.deleted) setDeletedRecords(savedData.deleted);
         }
       } catch (error) {
         console.error("Failed to load data:", error);
       }
+
       setMounted(true);
     };
     initData();
@@ -143,10 +152,15 @@ export default function TaxBuddyPage() {
         medical: records,
         furusato: furusatoRecords,
         history: history,
+        deleted: deletedRecords, // ★ここを追加！
       };
+
+      // デバッグ用：保存される内容をコンソールで確認
+      console.log("Saving data including deleted items:", dataToSave);
+
       window.electronAPI?.saveData(dataToSave);
     }
-  }, [records, furusatoRecords, history, mounted]);
+  }, [records, furusatoRecords, history, deletedRecords, mounted]);
 
   // 4. 計算ロジック (ダッシュボード用)
   const stats = useMemo(() => {
@@ -292,6 +306,36 @@ export default function TaxBuddyPage() {
         ),
       );
     }
+  };
+
+  // レコードの削除と復元のロジック
+  const deleteRecord = (id: string) => {
+    const target = records.find((r) => r.id === id);
+    if (!target) return;
+
+    // ゴミ箱に追加し、現在のリストから消す
+    setDeletedRecords([target, ...deletedRecords]);
+    setRecords(records.filter((r) => r.id !== id));
+
+    // パターンB: クイック元に戻す通知
+    setLastDeleted(target);
+    setShowUndo(true);
+    setTimeout(() => {
+      setShowUndo(false);
+    }, 5000);
+  };
+
+  // ゴミ箱から復元する関数
+  const restoreRecord = (record: MedicalRecord) => {
+    setRecords([record, ...records]);
+    setDeletedRecords(deletedRecords.filter((r) => r.id !== record.id));
+    // const undoDelete = () => {
+    //   if (deletedRecords.length > 0) {
+    //     const lastDeleted = deletedRecords[deletedRecords.length - 1];
+    //     setRecords((prev) => [...prev, lastDeleted]);
+    //     setDeletedRecords((prev) => prev.slice(0, -1));
+    //     setShowUndo(false);
+    //   }
   };
 
   if (!mounted) return <div className="min-h-screen bg-white dark:bg-slate-900" />;
@@ -447,6 +491,13 @@ export default function TaxBuddyPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8 pb-20">
             <div className="lg:col-span-2 flex flex-col gap-4">
               <h3 className="font-bold flex items-center gap-2 text-blue-600">📋 入力明細</h3>
+              <button
+                type="button"
+                onClick={() => setShowTrashModal(true)}
+                className="text-xs font-bold text-slate-400 hover:text-slate-600 flex items-center gap-1"
+              >
+                🗑️ ゴミ箱 ({deletedRecords.length})
+              </button>
               <TaxTable
                 headers={["日付", "氏名", "場所", "金額"]}
                 color="blue"
@@ -469,7 +520,7 @@ export default function TaxBuddyPage() {
                     </div>,
                   ],
                 }))}
-                onDelete={(id) => setRecords(records.filter((rec) => rec.id !== id))}
+                onDelete={(id) => deleteRecord(id)}
                 emptyMessage="医療費のデータがありません"
                 sortOrder={sortOrder}
                 onSort={handleSort}
@@ -685,6 +736,81 @@ export default function TaxBuddyPage() {
               この画面を見ながらe-Taxに転記してください
             </div>
           </div>
+        </div>
+      )}
+      {showTrashModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl w-full max-w-xl max-h-[80vh] flex flex-col shadow-2xl border dark:border-slate-700">
+            <div className="p-6 border-b dark:border-slate-700 flex justify-between items-center">
+              <h2 className="text-xl font-black flex items-center gap-2">🗑️ ゴミ箱</h2>
+              <button
+                type="button"
+                onClick={() => setShowTrashModal(false)}
+                className="text-slate-400 text-2xl"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+              {deletedRecords.length === 0 ? (
+                <p className="text-center text-slate-400 py-10 font-bold">ゴミ箱は空です</p>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {deletedRecords.map((r) => (
+                    <div
+                      key={r.id}
+                      className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-700/50 rounded-xl border dark:border-slate-600"
+                    >
+                      <div className="flex flex-col">
+                        <span className="text-[10px] font-bold text-slate-400">{r.date}</span>
+                        <span className="text-sm font-bold">
+                          {r.providerName} - ¥{r.amount.toLocaleString()}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => restoreRecord(r)}
+                        className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-black hover:bg-blue-700 transition"
+                      >
+                        復元する
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="p-4 bg-slate-50 dark:bg-slate-800 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (confirm("ゴミ箱を完全に空にしますか？")) setDeletedRecords([]);
+                }}
+                className="text-xs text-red-500 font-bold px-4 py-2"
+              >
+                ゴミ箱を空にする
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* パターンB: クイック元に戻す通知（トースト） */}
+      {showUndo && (
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-4 z-[100] animate-in slide-in-from-bottom-4">
+          <span className="text-sm font-bold">データを削除しました</span>
+          <button
+            type="button"
+            onClick={() => {
+              // ! を使わずに、存在チェックを行う
+              if (lastDeleted) {
+                restoreRecord(lastDeleted);
+                setShowUndo(false);
+              }
+            }}
+            className="text-yellow-400 font-black text-sm pl-4 border-l border-slate-600"
+          >
+            元に戻す
+          </button>
         </div>
       )}
     </main>
