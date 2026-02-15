@@ -42,9 +42,8 @@ export const FurusatoForm: FC<FurusatoFormProps> = ({
   const cityListId = useId();
   const amountId = useId();
   const memoId = useId();
-  // const providerListId = useId();
-  // const categoryId = useId();
-  // const reimbursementId = useId();
+  const isOneStopId = useId();
+  const isReceivedId = useId();
 
   return (
     <form
@@ -99,7 +98,7 @@ export const FurusatoForm: FC<FurusatoFormProps> = ({
             htmlFor={amountId}
             className="text-xs font-black text-slate-500 dark:text-slate-400 ml-1 tracking-widest uppercase"
           >
-            支払金額
+            寄付金額
           </label>
           <div className="relative">
             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">
@@ -117,7 +116,7 @@ export const FurusatoForm: FC<FurusatoFormProps> = ({
           </div>
         </div>
 
-        {/* 寄付内容のメモ */}
+        {/* 返礼品のメモ */}
         <div className="space-y-2">
           <label
             htmlFor={memoId}
@@ -135,59 +134,7 @@ export const FurusatoForm: FC<FurusatoFormProps> = ({
             onChange={(e) => setFormData({ ...formData, memo: e.target.value })}
             className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-blue-500 focus:bg-white dark:focus:bg-slate-800 outline-none transition-all font-bold text-slate-700 dark:text-slate-200"
           />
-          {/* <datalist id={providerListId}>
-            {history.providerNames.map((p) => (
-              <option key={p} value={p} />
-            ))}
-          </datalist> */}
         </div>
-
-        {/* 区分（カテゴリ） */}
-        {/* <div className="space-y-2">
-          <label
-            htmlFor={categoryId}
-            className="text-xs font-black text-slate-500 dark:text-slate-400 ml-1 tracking-widest uppercase"
-          >
-            区分
-          </label>
-          <select
-            id={categoryId}
-            value={formData.category} // tax.ts の MedicalRecord に category がある前提
-            onChange={(e) =>
-              setFormData({ ...formData, category: e.target.value as MedicalCategory })
-            }
-            className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-blue-500 focus:bg-white dark:focus:bg-slate-800 outline-none transition-all font-bold text-slate-700 dark:text-slate-200 appearance-none"
-          >
-            {CATEGORIES.map((cat) => (
-              <option key={cat} value={cat}>
-                {cat}
-              </option>
-            ))}
-          </select>
-        </div> */}
-
-        {/* 補填額 */}
-        {/* <div className="space-y-2">
-          <label
-            htmlFor={reimbursementId}
-            className="text-xs font-black text-slate-500 dark:text-slate-400 ml-1 tracking-widest uppercase"
-          >
-            保険等の補填額
-          </label>
-          <div className="relative">
-            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">
-              ¥
-            </span>
-            <input
-              id={reimbursementId}
-              type="number"
-              min="0"
-              value={formData.reimbursement || ""}
-              onChange={(e) => setFormData({ ...formData, reimbursement: Number(e.target.value) })}
-              className="w-full p-4 pl-10 rounded-2xl bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-blue-500 focus:bg-white dark:focus:bg-slate-800 outline-none transition-all font-bold text-slate-700 dark:text-slate-200"
-            />
-          </div>
-        </div> */}
       </div>
 
       <div className="mt-8 flex gap-4">
