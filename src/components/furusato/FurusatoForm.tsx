@@ -3,19 +3,11 @@ import { useId, type FC } from "react";
 import { registerLocale } from "react-datepicker"; // 追加
 import { ja } from "date-fns/locale/ja"; // 追加
 import "react-datepicker/dist/react-datepicker.css"; // 必要ならスタイルも
-import type { MedicalRecord, MedicalCategory, FurusatoRecord, History } from "@/types/tax";
+import type { FurusatoRecord, History } from "@/types/tax";
 
 // コンポーネントの外で1回だけ実行されるように配置
 registerLocale("ja", ja);
 
-// interface MedicalFormProps {
-//   onSubmit: (e: React.FormEvent) => void;
-//   formData: Omit<MedicalRecord, "id">;
-//   setFormData: (data: any) => void;
-//   history: History;
-//   editingId: string | null;
-//   onCancelEdit: () => void;
-// }
 interface FurusatoFormProps {
   onSubmit: (e: React.FormEvent) => void;
   formData: Omit<FurusatoRecord, "id">;
@@ -25,16 +17,11 @@ interface FurusatoFormProps {
   onCancelEdit: () => void;
 }
 
-// 選択肢の定義
-// const CATEGORIES: MedicalCategory[] = ["診療代", "薬代", "交通費", "その他"];
-
 export const FurusatoForm: FC<FurusatoFormProps> = ({
   onSubmit,
   formData,
   setFormData,
   history,
-  editingId,
-  onCancelEdit,
 }) => {
   // すべての入力項目とリスト用に一意のIDを生成
   const dateId = useId();
@@ -137,27 +124,21 @@ export const FurusatoForm: FC<FurusatoFormProps> = ({
         </div>
       </div>
 
-      <div className="mt-8 flex gap-4">
-        <button
-          type="submit"
-          className={`flex-1 p-5 rounded-2xl font-black text-lg shadow-lg transition-all active:scale-95 ${
-            editingId
-              ? "bg-amber-500 hover:bg-amber-600 text-white"
-              : "bg-blue-600 hover:bg-blue-700 text-white"
-          }`}
+      {/* 特例申請（ワンストップ申請）チェックボックス */}
+      <div className="mt-6 flex items-center gap-4">
+        <input
+          id={isOneStopId}
+          type="checkbox"
+          checked={formData.isOneStop}
+          onChange={(e) => setFormData({ ...formData, isOneStop: e.target.checked })}
+          className="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+        />
+        <label
+          htmlFor={isOneStopId}
+          className="text-sm font-medium text-slate-700 dark:text-slate-300"
         >
-          {editingId ? "✨ 記録を更新する" : "➕ 記録を追加する"}
-        </button>
-
-        {editingId && (
-          <button
-            type="button"
-            onClick={onCancelEdit}
-            className="px-8 py-5 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-2xl font-black hover:bg-slate-200 transition-all"
-          >
-            キャンセル
-          </button>
-        )}
+          特例申請
+        </label>
       </div>
     </form>
   );
