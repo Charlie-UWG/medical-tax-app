@@ -159,8 +159,6 @@ export default function TaxBuddyPage() {
     }
   };
 
-  // if (isLoading) return <div className="p-8 text-center font-black">Loading...</div>;
-
   // レコード編集開始処理（医療費）
   const startEdit = (record: MedicalRecord) => {
     console.log("startEditが実行されました:", record.id);
@@ -186,19 +184,6 @@ export default function TaxBuddyPage() {
       formElement.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   };
-  // const startEdit = (record: MedicalRecord) => {
-  //   setEditingId(record.id);
-  //   setFormData({
-  //     date: record.date,
-  //     patientName: record.patientName,
-  //     providerName: record.providerName,
-  //     category: record.category,
-  //     amount: record.amount,
-  //     reimbursement: record.reimbursement,
-  //   });
-  //   // フォームまでスクロールさせる
-  //   window.scrollTo({ top: 0, behavior: "smooth" });
-  // };
 
   // 6. フォーム送信処理 (ふるさと納税)
   const handleFurusatoSubmit = (e: SyntheticEvent<HTMLFormElement>) => {
@@ -224,10 +209,6 @@ export default function TaxBuddyPage() {
   if (isLoading) {
     return <div className="min-h-screen bg-white dark:bg-slate-900" />;
   }
-
-  <div className="fixed top-0 left-0 bg-black text-white z-[9999]">
-    現在の名前: {formData.patientName}
-  </div>;
 
   return (
     <main className="h-screen flex flex-col overflow-hidden p-8 max-w-5xl mx-auto font-sans min-h-screen transition-colors duration-300 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
@@ -592,13 +573,6 @@ export default function TaxBuddyPage() {
         onRestore={restoreRecord}
         onClose={() => setShowUndo(false)}
       />
-      {/* <button
-        type="button"
-        onClick={() => startEdit(records[0])}
-        className="p-2 bg-blue-500 text-white rounded"
-      >
-        編集テスト
-      </button> */}
     </main>
   );
 }
