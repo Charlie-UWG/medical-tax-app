@@ -9,7 +9,7 @@ import type { MedicalRecord, MedicalCategory, History } from "@/types/tax";
 registerLocale("ja", ja);
 
 interface MedicalFormProps {
-  onSubmit: (e: React.FormEvent) => void;
+  onSubmit: (e: React.FormEvent<HTMLFormElement>) => void | Promise<void>;
   formData: Omit<MedicalRecord, "id">;
   setFormData: (data: any) => void;
   history: History;
@@ -18,7 +18,12 @@ interface MedicalFormProps {
 }
 
 // 選択肢の定義
-const CATEGORIES: MedicalCategory[] = ["診療代", "薬代", "交通費", "その他"];
+const CATEGORIES: MedicalCategory[] = [
+  "診療代",
+  "医薬品購入",
+  "介護サービス",
+  "その他の医療費(交通費など)",
+];
 
 export const MedicalForm: FC<MedicalFormProps> = ({
   onSubmit,
@@ -53,7 +58,8 @@ export const MedicalForm: FC<MedicalFormProps> = ({
             受診日
           </label>
           <input
-            type={dateId}
+            id={dateId}
+            type="date"
             required
             value={formData.date}
             onChange={(e) => setFormData({ ...formData, date: e.target.value })}

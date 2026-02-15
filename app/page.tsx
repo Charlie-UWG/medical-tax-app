@@ -21,7 +21,7 @@ registerLocale("ja", ja); // これでDatePickerが日本語になります
 // e-Taxの4区分を判定して表示するパーツ
 const ETagCategoryChecks = ({ usedCategories }: { usedCategories: Set<string> }) => {
   const categories = [
-    { label: "診", id: "診療・治療" },
+    { label: "診", id: "診療代" },
     { label: "薬", id: "医薬品購入" },
     { label: "介", id: "介護サービス" },
     { label: "他", id: "その他の医療費（交通費など）" },
@@ -259,105 +259,25 @@ export default function TaxBuddyPage() {
 
       {activeTab === "medical" && (
         <div className="animate-in fade-in duration-300 flex-1 flex flex-col overflow-y-auto pr-2 custom-scrollbar">
-          <TaxForm
+          {" "}
+          <MedicalForm
+            formData={formData}
+            setFormData={setFormData}
             onSubmit={handleSubmit}
-            color={editingId ? "orange" : "blue"} // 編集時は色を変えると分かりやすい
-            buttonText={editingId ? "修正を保存する" : "医療費を追加"}
-          >
-            <div className="flex flex-col gap-1">
-              <TaxLabel>受診日</TaxLabel>
-              <DatePicker
-                selected={formData.date ? new Date(formData.date) : null}
-                onChange={(date: Date | null) => {
-                  if (date) {
-                    const yyyy = date.getFullYear();
-                    const mm = String(date.getMonth() + 1).padStart(2, "0");
-                    const dd = String(date.getDate()).padStart(2, "0");
-                    setFormData({ ...formData, date: `${yyyy}-${mm}-${dd}` });
-                  }
-                }}
-                locale="ja"
-                dateFormat="yyyy/MM/dd"
-                className="p-3 text-lg border-2 rounded-xl font-bold w-full h-[52px] dark:bg-slate-700 dark:border-slate-600 outline-none focus:ring-4 focus:ring-blue-500/20 cursor-pointer"
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <TaxLabel>氏名</TaxLabel>
-              <input
-                type="text"
-                placeholder="氏名"
-                className="h-[52px] p-2 border rounded-md dark:bg-slate-700 dark:text-white dark:border-slate-600"
-                value={formData.patientName}
-                onChange={(e) => setFormData({ ...formData, patientName: e.target.value })}
-                required
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <TaxLabel>病院・薬局</TaxLabel>
-              <SuggestInput
-                placeholder="病院・薬局名"
-                value={formData.providerName}
-                onChange={(val) => setFormData({ ...formData, providerName: val })}
-                suggestions={history.providerNames}
-                className="h-[52px]"
-                required
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <TaxLabel>区分</TaxLabel>
-              <select
-                className="h-[52px] p-2 border-2 rounded-xl dark:bg-slate-700 dark:text-white dark:border-slate-600"
-                value={formData.category}
-                onChange={(e) =>
-                  setFormData({ ...formData, category: e.target.value as MedicalCategory })
-                }
-              >
-                <option value="診療・治療">診療・治療</option>
-                <option value="医薬品購入">医薬品購入</option>
-                <option value="介護サービス">介護サービス</option>
-                <option value="その他の医療費（交通費など）">その他の医療費（交通費など）</option>
-              </select>
-            </div>
-            <div className="flex flex-col gap-1">
-              <TaxLabel>金額</TaxLabel>
-              <input
-                type="number"
-                placeholder="金額"
-                className="h-[52px] p-2 border rounded-md dark:bg-slate-700 text-right"
-                value={formData.amount || ""}
-                onChange={(e) => setFormData({ ...formData, amount: Number(e.target.value) })}
-                required
-              />
-            </div>
-            {/* 金額入力の次に追加 */}
-            <div className="flex flex-col gap-1">
-              <TaxLabel>補填金額</TaxLabel>
-              <input
-                type="number"
-                placeholder="保険金など"
-                className="h-[52px] p-2 border rounded-md dark:bg-slate-700 text-right text-pink-500 font-bold"
-                value={formData.reimbursement || ""}
-                onChange={(e) =>
-                  setFormData({ ...formData, reimbursement: Number(e.target.value) })
-                }
-              />
-              <p className="text-[10px] text-slate-400">※保険金や高額療養費で戻る額</p>
-            </div>
-            {/* 編集中のときだけ「キャンセル」ボタンを出す（お好みで） */}
-            {editingId && (
-              <button
-                type="button"
-                onClick={() => {
-                  setEditingId(null);
-                  setFormData({ ...formData, providerName: "", amount: 0, reimbursement: 0 });
-                }}
-                className="mt-2 text-xs text-slate-500 underline"
-              >
-                編集をキャンセル
-              </button>
-            )}
-          </TaxForm>
-
+            editingId={editingId}
+            onCancelEdit={() => {
+              setEditingId(null);
+              setFormData({
+                date: new Date().toISOString().split("T")[0],
+                patientName: "",
+                providerName: "",
+                category: "診療代",
+                amount: 0,
+                reimbursement: 0,
+              });
+            }}
+            history={history} // useMedicalData から取得した履歴データ
+          />
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8 pb-20">
             <div className="lg:col-span-2 flex flex-col gap-4">
               <h3 className="font-bold flex items-center gap-2 text-blue-600">📋 入力明細</h3>
@@ -390,7 +310,6 @@ export default function TaxBuddyPage() {
                 onSort={() => toggleSort("medical")}
               />
             </div>
-
             <div className="flex flex-col gap-4">
               <div className="p-6 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700">
                 <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200 flex items-center gap-2 mb-4">
@@ -399,7 +318,6 @@ export default function TaxBuddyPage() {
                   </span>
                   病院別の合計
                 </h3>
-
                 {/* ↓ここが追加する拡大ボタンです */}
                 <button
                   type="button"
@@ -408,7 +326,6 @@ export default function TaxBuddyPage() {
                 >
                   🔍 全画面で大きく表示
                 </button>
-
                 {etaxSummary.length > 0 ? (
                   <div className="flex flex-col gap-2">
                     {etaxSummary.map((s) => (
@@ -427,7 +344,6 @@ export default function TaxBuddyPage() {
                               {s.providerName}
                             </span>
                           </div>
-
                           {/* 右側：金額（右寄せを固定） */}
                           <div className="flex flex-col items-end shrink-0 ml-2">
                             <span className="text-blue-600 dark:text-blue-400 font-mono font-black text-lg leading-none">
@@ -440,7 +356,6 @@ export default function TaxBuddyPage() {
                             )}
                           </div>
                         </div>
-
                         {/* 下段：区分チェック（線を引いて独立させる） */}
                         <div className="pt-2 border-t border-slate-100 dark:border-slate-700">
                           <ETagCategoryChecks usedCategories={s.usedCategories} />
