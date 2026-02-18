@@ -19,7 +19,7 @@ interface MedicalFormProps {
 
 // 選択肢の定義
 const CATEGORIES: MedicalCategory[] = [
-  "診療代",
+  "診療・治療",
   "医薬品購入",
   "介護サービス",
   "その他の医療費(交通費など)",

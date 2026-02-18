@@ -18,7 +18,7 @@ export interface History {
 
 // 医療費の区分（e-Taxの集計などで使用）
 export type MedicalCategory =
-  | "診療代"
+  | "診療・治療"
   | "医薬品購入"
   | "介護サービス"
   | "その他の医療費(交通費など)";
