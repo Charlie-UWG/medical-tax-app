@@ -139,7 +139,7 @@ export default function TaxBuddyPage() {
   if (isLoading) return <div className="min-h-screen bg-white dark:bg-slate-900" />;
 
   return (
-    <main className="h-screen flex flex-col overflow-hidden p-8 max-w-5xl mx-auto font-sans transition-colors duration-300 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+    <main className="min-h-screen flex flex-col p-8 max-w-5xl mx-auto font-sans transition-colors duration-300 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
       {/* ヘッダーエリア */}
       <div className="flex justify-between items-center mb-8 flex-none">
         <h1 className="text-3xl font-bold text-blue-600 dark:text-blue-400">TaxBuddy 🩺🎁</h1>
@@ -186,7 +186,9 @@ export default function TaxBuddyPage() {
 
       {/* メインコンテンツエリア */}
       {activeTab === "medical" ? (
-        <div className="animate-in fade-in duration-300 flex-1 flex flex-col overflow-y-auto pr-2 custom-scrollbar">
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          {" "}
+          {/* min-h-0 が重要です */}{" "}
           <MedicalForm
             formData={formData}
             setFormData={setFormData}
@@ -197,7 +199,7 @@ export default function TaxBuddyPage() {
           />
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8 pb-20">
             {/* 左側：入力明細テーブル */}
-            <div className="lg:col-span-2 flex flex-col gap-4">
+            <div className="lg:col-span-2 flex flex-col gap-4 min-h-0">
               <div className="flex justify-between">
                 <h3 className="font-bold text-blue-600">📋 入力明細</h3>
                 <button
