@@ -3,14 +3,16 @@ const path = require("node:path");
 const fs = require("node:fs");
 
 function createWindow() {
-  // process.cwd() を使い、プロジェクトのルートにある preload.js を確実に指定
-  const resolvedPreloadPath = path.join(process.cwd(), "preload.js");
+  // 修正箇所: app.isPackaged を判定してパスを切り替える
+  const preloadPath = app.isPackaged
+    ? path.join(__dirname, "preload.js") // ビルド後はこの位置になる
+    : path.join(__dirname, "preload.js"); // 開発中もこの位置（rootにあるので）
 
   const mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
     webPreferences: {
-      preload: resolvedPreloadPath,
+      preload: preloadPath, // ここに修正後のパスを渡す
       nodeIntegration: false,
       contextIsolation: true,
     },

@@ -14,6 +14,11 @@
   "build": {
     "appId": "com.taxbuddy.app",
     "productName": "TaxBuddy",
+    "files": [
+      "**/*",
+      "preload.js",
+      "out/**/*"
+    ],
     "mac": {
       "category": "public.app-category.finance",
       "target": [
