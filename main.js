@@ -3,10 +3,9 @@ const path = require("node:path");
 const fs = require("node:fs");
 
 function createWindow() {
-  // 修正箇所: app.isPackaged を判定してパスを切り替える
-  const preloadPath = app.isPackaged
-    ? path.join(__dirname, "preload.js") // ビルド後はこの位置になる
-    : path.join(__dirname, "preload.js"); // 開発中もこの位置（rootにあるので）
+  const preloadPath = path.join(__dirname, "preload.js");
+  // これだけでOKです。path.join(__dirname, ...) は
+  // .app 内でも開発ディレクトリ内でも正しくルートを指します。
 
   const mainWindow = new BrowserWindow({
     width: 1200,
